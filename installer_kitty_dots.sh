@@ -3,10 +3,10 @@
 # Determine the source directory based on execution context
 if [ -d "kitty" ]; then
     # Called from root of repo
-    SOURCE_DIR="kitty"
+    SCRIPT_DIR="kitty"
 else
     # Called from within kitty folder
-    SOURCE_DIR="."
+    SCRIPT_DIR="."
 fi
 
 # User configuration directory
@@ -16,20 +16,30 @@ CONFIG_DIR="$HOME/.config/kitty"
 prompt_user() {
     local message=$1
     local response
-    read -p "$message [y/n]: " response
-    case $response in
-        [Yy]* ) return 0 ;;
-        * ) return 1 ;;
-    esac
+
+    for(( i=0;i<2;i++ ));do
+        read -p "$message [y/n]: " response
+        if [[ "$response" == "y" || "$response" == "Y" ]];then
+            return 0
+        elif [[ "$response" == "n" || "$response" == "N" ]];then
+            return 1
+        fi
+    done
+    return 1
 }
+
 
 # Function to check if a command is available
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+    #echo $?
+    return $?
 }
+#echo $(command_exists pacman)
+#echo $(command_exists apt)
 
 # Function to detect package manager
-get_package_manager() {
+package_manager() {
     if command_exists apt; then
         echo "apt"
     elif command_exists pacman; then
@@ -65,7 +75,6 @@ install_fonts() {
             unzip -q "$temp_dir/FantasqueSansMono.zip" -d "$temp_dir/fonts"
             mv "$temp_dir/fonts"/*.ttf "$font_dir/" 2>/dev/null || {
                 echo "Error: No TTF files found in the downloaded zip."
-                rm -rf "$temp_dir"
                 return 1
             }
             
@@ -73,13 +82,11 @@ install_fonts() {
             fc-cache -fv > /dev/null
             echo "$font_name installed successfully."
             
-            # Clean up
-            rm -rf "$temp_dir"
         else
             echo "Error: Failed to download $font_name."
-            rm -rf "$temp_dir"
             return 1
         fi
+        rm -rf "$temp_dir"
     else
         echo "Skipping $font_name installation."
         return 0
@@ -88,7 +95,6 @@ install_fonts() {
 
 # Function to install Kitty
 install_kitty() {
-    local pkg_manager=$(get_package_manager)
     echo "Checking if Kitty is installed..."
     
     if command_exists kitty; then
@@ -97,11 +103,11 @@ install_kitty() {
     fi
     
     if prompt_user "Kitty is not installed. Would you like to install it?"; then
-        if [ "$pkg_manager" = "apt" ]; then
+        if [ "$(package_manager)" = "apt" ]; then
             echo "Installing Kitty using apt..."
             sudo apt update
             sudo apt install -y kitty
-        elif [ "$pkg_manager" = "pacman" ]; then
+        elif [ "$(package_manager)" = "pacman" ]; then
             echo "Installing Kitty using pacman..."
             sudo pacman -Syu --noconfirm kitty
         else
@@ -122,18 +128,43 @@ install_kitty() {
     fi
 }
 
-# Function to ensure kitty.conf exists
-ensure_kitty_conf() {
+#config checker                    (( 1 ))
+config_checker(){
     echo "Checking for kitty.conf in $CONFIG_DIR..."
     if [ ! -d "$CONFIG_DIR" ]; then
         if prompt_user "Kitty configuration directory ($CONFIG_DIR) does not exist. Create it?"; then
-            mkdir -p "$CONFIG_DIR"
-            echo "Created $CONFIG_DIR."
+            mkdir -p "$CONFIG_DIR" && echo "Created $CONFIG_DIR."
+            return 0
         else
             echo "Cannot proceed without creating $CONFIG_DIR."
             return 1
         fi
     fi
+    return 0
+}
+str_finder(){              #           (( 1.2 ))
+    if grep -q "$2" "$1";then
+        return 0
+    else
+        return 1
+    fi
+}
+recopy(){
+    if [[ -f "$2" ]];then
+        cp "$1" "$2"
+        if [ $? -eq 0 ];then echo "successfully re-copied"; fi
+        return 0
+    fi
+    echo "file doesn't exist"
+    return 1
+}
+
+# Function to ensure kitty.conf exists   (( 2 ))
+ensure_kitty_conf() {
+    if ! config_checker;then
+        return 1
+    fi
+
     
     if [ ! -f "$CONFIG_DIR/kitty.conf" ]; then
         if prompt_user "kitty.conf not found in $CONFIG_DIR. Create an empty kitty.conf?"; then
@@ -147,13 +178,21 @@ ensure_kitty_conf() {
     return 0
 }
 
-# Function to install kitty-themes
+# SCRIPT_DIR
+# script_themes_dir
+# themes_dir
+
+# Function to install kitty-themes     (( 3 ))
 install_kitty_themes() {
     local themes_dir="$CONFIG_DIR/kitty-themes"
-    local source_themes_dir="$SOURCE_DIR/kitty-themes"
+    local script_themes_dir="$SCRIPT_DIR/kitty-themes"
     
-    if [ ! -d "$source_themes_dir" ]; then
-        echo "Error: kitty-themes directory not found in $SOURCE_DIR."
+    if ! config_checker;then
+        return 1
+    fi
+
+    if [ ! -d "$script_themes_dir" ]; then
+        echo "Error: kitty-themes directory not found in $SCRIPT_DIR to install"
         return 1
     fi
     
@@ -162,7 +201,7 @@ install_kitty_themes() {
         mkdir -p "$themes_dir"
         
         # Copy only new themes, skip existing ones
-        for theme in "$source_themes_dir"/*.conf; do
+        for theme in "$script_themes_dir"/*.conf; do
             theme_name=$(basename "$theme")
             if [ -f "$themes_dir/$theme_name" ]; then
                 echo "Theme $theme_name already exists, skipping."
@@ -172,52 +211,104 @@ install_kitty_themes() {
             fi
         done
         echo "Kitty themes installation complete."
+        return 0
     else
         echo "Skipping kitty-themes installation."
+        return 1
     fi
 }
 
 # Function to install kitty-colors.conf
-install_kitty_colors() {
-    local source_colors="$SOURCE_DIR/kitty-colors.conf"
+install_kitty_colors_custom() {
+    local script_colors="$SCRIPT_DIR/kitty-colors_custom.conf"
     local target_colors="$CONFIG_DIR/kitty-colors.conf"
     local custom_colors="$CONFIG_DIR/kitty-colors-custom.conf"
-    
-    if [ ! -f "$source_colors" ]; then
-        echo "Error: kitty-colors.conf not found in $SOURCE_DIR."
-        return 1
-    fi
-    
-    echo "Checking for kitty-colors.conf in $CONFIG_DIR..."
-    if prompt_user "Install kitty-colors.conf in $CONFIG_DIR?"; then
-        if [ -f "$target_colors" ]; then
-            echo "kitty-colors.conf already exists. Installing as kitty-colors-custom.conf."
-            cp "$source_colors" "$custom_colors"
-            echo "Installed kitty-colors-custom.conf."
-        else
-            cp "$source_colors" "$target_colors"
-            echo "Installed kitty-colors.conf."
+
+    if prompt_user "Install kitty-colors_custom.conf in $CONFIG_DIR?"; then
+
+        if ! config_checker;then
+            return 1
         fi
+
+        if [ ! -f "$script_colors" ]; then
+            echo "Error: kitty-colors_custom.conf not found in $SCRIPT_DIR."
+            return 1
+        fi
+        
+        echo "Checking for kitty-colors.conf in $CONFIG_DIR..."
+        if [ ! -f "$target_colors" ]; then
+            if prompt_user "Create kitty-colors.conf? (Required)";then
+                touch "$target_colors"
+            else
+                echo "cant continue without kitty-colors.conf"
+                return 1
+            fi
+        fi
+
+        if [ -f "$custom_colors" ]; then   ##  !!
+            echo "kitty-colors_custom.conf already installed in $CONFIG_DIR."
+            if prompt_user "wanna re-install?";then
+                if recopy "$script_colors" "$custom_colors";then
+                    echo re-installed
+                else
+                    return 1
+                fi
+            else
+                echo "skipping without re-installing"
+            fi
+        else
+            cp "$script_colors" "$custom_colors"
+            echo "kitty-colors_custom.conf pasted ... "
+        fi
+        
+
+        if str_finder "$target_colors" "include ./kitty-colors_custom.conf"; then
+            echo "custom colors script already included in $target_colors."
+        else
+            echo "include ./kitty-colors_custom.conf" >> "$target_colors"
+            echo "kitty-colors_custom.conf file is included ... "
+        fi
+            
+        return 0
     else
-        echo "Skipping kitty-colors.conf installation."
+        echo "Skipping kitty-colors_custom.conf installation."
+        return 1
     fi
 }
 
 # Function to install kitty_custom.conf and update kitty.conf
 install_kitty_custom() {
-    local source_custom="$SOURCE_DIR/kitty_custom.conf"
+    local script_custom="$SCRIPT_DIR/kitty_custom.conf"
     local target_custom="$CONFIG_DIR/kitty_custom.conf"
     
-    if [ ! -f "$source_custom" ]; then
-        echo "Error: kitty_custom.conf not found in $SOURCE_DIR."
-        return 1
-    fi
-    
-    echo "Checking for kitty_custom.conf in $CONFIG_DIR..."
     if prompt_user "Install kitty_custom.conf and include it in kitty.conf?"; then
-        cp "$source_custom" "$target_custom"
-        echo "Installed kitty_custom.conf."
+
+        if ! config_checker;then
+            return 1
+        fi
+
+        if [ ! -f "$script_custom" ]; then
+            echo "Error: kitty_custom.conf not found in $SCRIPT_DIR."
+            return 1
+        fi
+
+        if [ -f "$target_custom" ]; then   ##  !!
+            echo "custom conf script already installed in $CONFIG_DIR."
+            if prompt_user "wanna re-install?";then
+                if recopy "$script_custom" "$target_custom";then
+                    echo re-installed
+                else
+                    return 1
+                fi
+            else
+                echo "skipping without re-installing"
+            fi
+        else
+            cp "$script_custom" "$target_custom"
+            echo "Installed kitty_custom.conf."
+        fi
         
+
         # Check if kitty_custom.conf is already included
         if ! grep -q "include ./kitty_custom.conf" "$CONFIG_DIR/kitty.conf"; then
             echo "Adding include directive for kitty_custom.conf to kitty.conf..."
@@ -226,28 +317,12 @@ install_kitty_custom() {
         else
             echo "kitty_custom.conf is already included in kitty.conf."
         fi
-        
-        # Include kitty-colors.conf or kitty-colors-custom.conf if they exist
-        if [ -f "$CONFIG_DIR/kitty-colors.conf" ] && ! grep -q "include ./kitty-colors.conf" "$CONFIG_DIR/kitty.conf"; then
-            echo "Adding include directive for kitty-colors.conf to kitty.conf..."
-            echo "include ./kitty-colors.conf" >> "$CONFIG_DIR/kitty.conf"
-            echo "Included kitty-colors.conf in kitty.conf."
-        fi
-        
-        if [ -f "$CONFIG_DIR/kitty-colors-custom.conf" ] && ! grep -q "include ./kitty-colors-custom.conf" "$CONFIG_DIR/kitty.conf"; then
-            echo "Adding include directive for kitty-colors-custom.conf to kitty.conf..."
-            echo "include ./kitty-colors-custom.conf" >> "$CONFIG_DIR/kitty.conf"
-            echo "Included kitty-colors-custom.conf in kitty.conf."
-        fi
+        return 0
     else
         echo "Skipping kitty_custom.conf installation."
+        return 1
     fi
 }
-
-
-
-
-
 
 
 
@@ -257,7 +332,7 @@ install_kitty_custom() {
 echo "Starting Kitty dotfiles installation..."
 
 # Step 1: Install fonts
-if ! install_fonts; then
+if ! install_fonts;then
     echo "Font installation failed or was skipped. Continuing with other steps."
 fi
 
@@ -277,7 +352,7 @@ fi
 install_kitty_themes
 
 # Step 5: Install kitty-colors.conf
-install_kitty_colors
+install_kitty_colors_custom
 
 # Step 6: Install kitty_custom.conf and update kitty.conf
 install_kitty_custom
