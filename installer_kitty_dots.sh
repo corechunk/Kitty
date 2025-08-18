@@ -218,64 +218,6 @@ install_kitty_themes() {
     fi
 }
 
-# Function to install kitty-colors.conf
-install_kitty_colors_custom() {
-    local script_colors="$SCRIPT_DIR/kitty-colors_custom.conf"
-    local target_colors="$CONFIG_DIR/kitty-colors.conf"
-    local custom_colors="$CONFIG_DIR/kitty-colors-custom.conf"
-
-    if prompt_user "Install kitty-colors_custom.conf in $CONFIG_DIR?"; then
-
-        if ! config_checker;then
-            return 1
-        fi
-
-        if [ ! -f "$script_colors" ]; then
-            echo "Error: kitty-colors_custom.conf not found in $SCRIPT_DIR."
-            return 1
-        fi
-        
-        echo "Checking for kitty-colors.conf in $CONFIG_DIR..."
-        if [ ! -f "$target_colors" ]; then
-            if prompt_user "Create kitty-colors.conf? (Required)";then
-                touch "$target_colors"
-            else
-                echo "cant continue without kitty-colors.conf"
-                return 1
-            fi
-        fi
-
-        if [ -f "$custom_colors" ]; then   ##  !!
-            echo "kitty-colors_custom.conf already installed in $CONFIG_DIR."
-            if prompt_user "wanna re-install?";then
-                if recopy "$script_colors" "$custom_colors";then
-                    echo re-installed
-                else
-                    return 1
-                fi
-            else
-                echo "skipping without re-installing"
-            fi
-        else
-            cp "$script_colors" "$custom_colors"
-            echo "kitty-colors_custom.conf pasted ... "
-        fi
-        
-
-        if str_finder "$target_colors" "include ./kitty-colors_custom.conf"; then
-            echo "custom colors script already included in $target_colors."
-        else
-            echo "include ./kitty-colors_custom.conf" >> "$target_colors"
-            echo "kitty-colors_custom.conf file is included ... "
-        fi
-            
-        return 0
-    else
-        echo "Skipping kitty-colors_custom.conf installation."
-        return 1
-    fi
-}
-
 # Function to install kitty_custom.conf and update kitty.conf
 install_kitty_custom() {
     local script_custom="$SCRIPT_DIR/kitty_custom.conf"
@@ -351,8 +293,6 @@ fi
 # Step 4: Install kitty-themes
 install_kitty_themes
 
-# Step 5: Install kitty-colors.conf
-install_kitty_colors_custom
 
 # Step 6: Install kitty_custom.conf and update kitty.conf
 install_kitty_custom
