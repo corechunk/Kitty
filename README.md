@@ -2,7 +2,7 @@
 
 This repository provides a Bash script (`installer_kitty_dots.sh`) to automate the installation of the Kitty terminal emulator, the FantasqueSansM Nerd Font, and custom Kitty configurations. It supports Debian/Ubuntu (`apt`) and Arch-based (`pacman`) systems. All default Kitty shortcuts are blocked and manually remapped to suit my preferences, as detailed in `kitty_custom.conf`.
 
-- This is part of my [dotfiles](https://github.com/Miraj13123/dotfiles) repository. You can use the [dotfiles](https://github.com/Miraj13123/dotfiles) repo to automatically download this repo along with other dotfiles repositories like Neovim, Tmux, and Bash.
+- This is part of my [dotfiles](https://github.com/corechunk/dotfiles) repository. You can use the [dotfiles](https://github.com/corechunk/dotfiles) repo to automatically download this repo along with other dotfiles repositories like Neovim, Tmux, and Bash.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/kovidgoyal/kitty/master/logo/kitty.png" alt="Kitty Dotfiles Badge" width="200"/>
@@ -41,7 +41,7 @@ sudo apt install curl git unzip -y
 ### Manual Installation
 Clone the repository, run the script, and clean up:
 ```bash
-git clone https://github.com/Miraj13123/Kitty.git temp101
+git clone https://github.com/corechunk/Kitty.git temp101
 cd temp101
 chmod +x installer_kitty_dots.sh
 ./installer_kitty_dots.sh
@@ -51,7 +51,7 @@ rm -rf temp101
 
 ### One-Liner Installation
 ```bash
-git clone https://github.com/Miraj13123/Kitty.git temp101 && cd temp101 && chmod +x installer_kitty_dots.sh && ./installer_kitty_dots.sh && cd .. && rm -rf temp101
+git clone https://github.com/corechunk/Kitty.git temp101 && cd temp101 && chmod +x installer_kitty_dots.sh && ./installer_kitty_dots.sh && cd .. && rm -rf temp101
 ```
 
 The script will:
@@ -117,5 +117,5 @@ This project is licensed under the [Apache 2.0 License](LICENSE).
 
 ---
 
-[![Back to Dotfiles](https://img.shields.io/badge/Back_to_Dotfiles-181717?style=flat-square&logo=github)](https://github.com/Miraj13123/dotfiles)
+[![Back to Dotfiles](https://img.shields.io/badge/Back_to_Dotfiles-181717?style=flat-square&logo=github)](https://github.com/corechunk/dotfiles)
 [![Connect on X](https://img.shields.io/badge/Connect_on_X-1DA1F2?style=flat-square&logo=x)](https://x.com/Mahmudul__Miraj)
