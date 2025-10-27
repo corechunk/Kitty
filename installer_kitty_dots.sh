@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Check dependencies
+for dep in curl unzip fc-cache; do
+    if ! command -v "$dep" &>/dev/null; then
+        echo "Error: $dep is not installed. Please install it with: sudo pacman -S $dep"
+        return 1
+    fi
+done
+
 # Determine the source directory based on execution context
 if [ -d "kitty" ]; then
     # Called from root of repo
